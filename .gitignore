@@ -1,0 +1,28 @@
+# Build output: audiotee is reproduced from a pinned commit by
+# scripts/build_audiotee.sh, so the compiled binary is not committed.
+bin/
+
+# Downloaded ML model weights (fetched on demand, not version-controlled).
+models/
+
+# Python virtualenv, bytecode, build/test caches
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Recorded audio and generated minutes: user data, potentially large
+# and private — kept out of version control.
+*.wav
+recordings/
+
+# Secrets / local environment (e.g. HF_TOKEN) — never commit.
+.env
+.env.local
+.env*.local
+
+# macOS
+.DS_Store
