@@ -155,6 +155,28 @@ Recordings and downloaded models are kept out of version control.
 - **Separating speakers uses the Apple GPU (MPS) by default** and is much faster than CPU;
   pass `--device cpu` to force CPU. Long recordings on CPU can take a long time.
 
+## Responsible use
+
+This tool records on your own machine. It does **not** trigger the recording banner that
+Zoom, Teams, or Google Meet show when you use *their* built-in recording — so making sure
+everyone knows they're being recorded is on you, not the platform.
+
+- **Tell people first.** Before you start recording, say it out loud and get the other
+  participants' agreement. A clear verbal "I'm going to record this for notes — is that OK?"
+  is worth more than any automated chime.
+- **Know your jurisdiction.** Consent rules vary. Some places (e.g. California, and the EU
+  under GDPR) require *all* parties to agree before recording. Others only require one party.
+  In Taiwan, recording a conversation you are part of is generally permitted, but disclosure
+  is still good practice and personal-data rules may apply.
+- **Don't record covertly,** and stop if someone objects. The point of this tool is to save
+  you note-taking effort in meetings you're openly part of — not to capture people without
+  their knowledge.
+- **You're responsible for the recordings.** Transcripts can contain sensitive information;
+  store and share them accordingly.
+
+This is general guidance, not legal advice. If you're recording in a professional or
+regulated setting, check the rules that apply to you.
+
 ## Built with
 
 On-device speech recognition (mlx-audio), voice-activity detection (Silero), speaker
