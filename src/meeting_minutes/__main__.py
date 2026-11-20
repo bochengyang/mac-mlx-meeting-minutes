@@ -6,7 +6,14 @@ import argparse
 from pathlib import Path
 
 from meeting_minutes.recorder import record_session
-from meeting_minutes.transcribe import make_text_filter, transcribe_session
+from meeting_minutes.transcribe import (
+    DEFAULT_ALIGNER_MODEL,
+    DEFAULT_LANGUAGE,
+    DEFAULT_MODEL,
+    make_text_filter,
+    resolve_hotwords,
+    transcribe_session,
+)
 
 
 def parse_speaker_count(raw) -> int | None:
@@ -17,6 +24,28 @@ def parse_speaker_count(raw) -> int | None:
         if count > 0:
             return count
     return None
+
+
+def parse_diarization_choice(raw: str) -> tuple[bool, int | None]:
+    """Parse diarization prompt input into (enable_diarize, num_speakers)."""
+    value = raw.strip().lower()
+    if not value or value == "auto":
+        return True, None
+    if value.isdigit():
+        count = int(value)
+        if count >= 2:
+            return True, count
+    return False, None
+
+
+def normalize_optional_arg(raw: str | None) -> str | None:
+    """Normalize optional string arguments ('none', 'auto', or blank) to None."""
+    if raw is None:
+        return None
+    value = raw.strip()
+    if not value or value.lower() in {"none", "auto"}:
+        return None
+    return value
 
 
 def derive_date_from_session_dir(session_dir) -> str:
@@ -30,6 +59,37 @@ def derive_date_from_session_dir(session_dir) -> str:
 
 def add_common_options(parser) -> None:
     """Add options shared by the record and transcribe subcommands."""
+    parser.add_argument("--title", default="Meeting Minutes", help="Minutes title")
+    parser.add_argument(
+        "--model",
+        default=DEFAULT_MODEL,
+        help="ASR model repository or local path",
+    )
+    parser.add_argument(
+        "--aligner-model",
+        default=DEFAULT_ALIGNER_MODEL,
+        help="ForcedAligner model repository or 'none' to disable alignment",
+    )
+    parser.add_argument(
+        "--language",
+        default=DEFAULT_LANGUAGE,
+        help="Transcription language or 'auto' for automatic detection",
+    )
+    parser.add_argument(
+        "--hotwords",
+        default=None,
+        help="Path to hotwords file (defaults to hotwords.txt if present)",
+    )
+    parser.add_argument(
+        "--no-hotwords",
+        action="store_true",
+        help="Disable hotwords even if hotwords.txt exists",
+    )
+    parser.add_argument(
+        "--offline",
+        action="store_true",
+        help="Require models to already exist in local Hugging Face cache",
+    )
     parser.add_argument(
         "--no-vad",
         action="store_true",
@@ -48,8 +108,8 @@ def add_common_options(parser) -> None:
     )
 
 
-def main() -> None:
-    """Run the meeting_minutes command line interface."""
+def build_parser() -> argparse.ArgumentParser:
+    """Build and return the CLI argument parser."""
     parser = argparse.ArgumentParser(prog="meeting_minutes")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -81,12 +141,6 @@ def main() -> None:
         "transcribe", help="Transcribe a recorded meeting session"
     )
     transcribe_parser.add_argument("session_dir", help="Recording session directory")
-    transcribe_parser.add_argument("--title", default="Meeting Minutes", help="Minutes title")
-    transcribe_parser.add_argument(
-        "--model",
-        default="mlx-community/whisper-large-v3-turbo",
-        help="Whisper model repository",
-    )
     transcribe_parser.add_argument(
         "--date",
         default=None,
@@ -98,8 +152,46 @@ def main() -> None:
         default=None,
         help="Number of other-party speakers for diarization (omit to skip speaker labeling)",
     )
+    transcribe_parser.add_argument(
+        "--diarize",
+        action="store_true",
+        help="Auto-detect and label other-party speakers",
+    )
     add_common_options(transcribe_parser)
 
+    return parser
+
+
+def _transcribe_from_args(
+    session_dir: Path,
+    args: argparse.Namespace,
+    *,
+    date: str,
+    num_speakers: int | None,
+    enable_diarize: bool = False,
+) -> Path:
+    hotwords_path = normalize_optional_arg(args.hotwords)
+    disable_hotwords = args.no_hotwords or (args.hotwords is not None and hotwords_path is None)
+    return transcribe_session(
+        session_dir,
+        title=args.title,
+        date=date,
+        model=args.model,
+        aligner_model=normalize_optional_arg(args.aligner_model),
+        language=normalize_optional_arg(args.language),
+        hotwords=resolve_hotwords(hotwords_path, no_hotwords=disable_hotwords),
+        offline=args.offline,
+        text_filter=make_text_filter(args.zh_variant),
+        num_speakers=num_speakers,
+        enable_diarize=enable_diarize,
+        vad=not args.no_vad,
+        device=args.device,
+    )
+
+
+def main() -> None:
+    """Run the meeting_minutes command line interface."""
+    parser = build_parser()
     args = parser.parse_args()
 
     if args.command == "record":
@@ -112,33 +204,27 @@ def main() -> None:
         print(f"Microphone WAV: {session_dir / 'me.wav'}")
         print(f"System audio WAV: {session_dir / 'them.wav'}")
         if args.transcribe:
-            num_speakers = parse_speaker_count(
+            enable_diarize, num_speakers = parse_diarization_choice(
                 input(
-                    "Other-party speaker count (enter a number to label speakers, or press Enter to skip): "
+                    "Other-party speakers (Enter/auto = auto-detect, 2+ = exact count, 1/no = skip): "
                 )
             )
-            text_filter = make_text_filter(args.zh_variant)
-            minutes_path = transcribe_session(
+            minutes_path = _transcribe_from_args(
                 session_dir,
+                args,
                 date=derive_date_from_session_dir(session_dir),
-                text_filter=text_filter,
                 num_speakers=num_speakers,
-                vad=not args.no_vad,
-                device=args.device,
+                enable_diarize=enable_diarize,
             )
             print(minutes_path)
     elif args.command == "transcribe":
         session_dir = Path(args.session_dir)
-        text_filter = make_text_filter(args.zh_variant)
-        minutes_path = transcribe_session(
+        minutes_path = _transcribe_from_args(
             session_dir,
-            title=args.title,
+            args,
             date=args.date or derive_date_from_session_dir(session_dir),
-            model=args.model,
-            text_filter=text_filter,
             num_speakers=args.num_speakers,
-            vad=not args.no_vad,
-            device=args.device,
+            enable_diarize=args.diarize,
         )
         print(minutes_path)
 

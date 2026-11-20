@@ -19,10 +19,11 @@ venv/
 *.wav
 recordings/
 
-# Secrets / local environment (e.g. HF_TOKEN) — never commit.
+# Secrets / local environment (e.g. HF_TOKEN) and private hotwords — never commit.
 .env
 .env.local
 .env*.local
+hotwords.txt
 
 # macOS
 .DS_Store

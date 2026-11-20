@@ -11,9 +11,10 @@ what.
 
 - Records **you** and the **other side** as two separate tracks.
 - Turns speech into text **locally** on Apple Silicon.
+- Supports custom **hotwords** (`hotwords.txt`) for technical acronyms and names.
 - Optionally tells apart multiple people on the other side.
 - Removes junk text that speech recognition tends to invent during silent gaps.
-- Can convert Chinese output to Taiwan Traditional.
+- Converts Chinese output to Taiwan Traditional by default (`s2twp`).
 
 In the transcript, lines are labeled **Me** (your mic), **Them** (the other side), or
 **Speaker 1 / Speaker 2 / …** when you ask it to separate speakers.
@@ -72,7 +73,20 @@ automatically; for other terminals (iTerm2, …) you may need to add them by han
 
 > If the other side's recording comes out silent, this is the missing permission.
 
-**4. (Optional) Separating multiple speakers**
+**4. (Optional) Custom hotwords dictionary**
+
+Copy `hotwords.example.txt` to `hotwords.txt` (git-ignored so team terms stay local) and add
+frequently misheard project names or English acronyms (one per line; `#` comments allowed):
+
+```bash
+cp hotwords.example.txt hotwords.txt
+```
+
+Keep the list concise (around 10–30 high-value terms) so similar-sounding acronyms don't
+interfere with each other. When `hotwords.txt` exists in the working directory, it is loaded
+automatically.
+
+**5. (Optional) Separating multiple speakers**
 
 To label several people on the other side, do the one-time setup in
 [docs/pyannote-setup.md](docs/pyannote-setup.md). It still runs locally; the one-time login
@@ -91,25 +105,37 @@ uv run python -m meeting_minutes record --transcribe
 
 Press **Enter** to stop. It then asks how many people are on the other side:
 
-- Type `2` or more → they're labeled `Speaker 1`, `Speaker 2`, … (needs step 4).
-- Type `1`, or just press Enter → the other side is labeled `Them`.
+- Press **Enter** or type `auto` → auto-detect speakers and label them `Speaker 1`, `Speaker 2`, … (needs step 5).
+- Type `2` or more → separate using that exact speaker count (needs step 5).
+- Type `1` or `no` → skip separation; the other side is labeled `Them`.
 
 You get `recordings/<timestamp>/minutes.md`.
 
 **Transcribe a recording you already made:**
 
 ```bash
-uv run python -m meeting_minutes transcribe recordings/<timestamp> --num-speakers 3
+uv run python -m meeting_minutes transcribe recordings/<timestamp> --diarize
 ```
 
-**Handy options**
+**Handy options** *(supported by both `record --transcribe` and `transcribe`)*
 
 | Flag | What it does |
 | --- | --- |
-| `--num-speakers N` | how many people are on the other side (omit, or `1`, to skip separation) |
+| `--model REPO` | speech recognition model repository or local path |
+| `--aligner-model REPO` | timestamp aligner model repository or local path, or `none` to skip |
+| `--language LANG` | transcription language or `auto` (default: `Chinese`) |
+| `--hotwords PATH` | path to hotwords file (defaults to `hotwords.txt` if present) |
+| `--no-hotwords` | disable hotwords even if `hotwords.txt` exists |
+| `--offline` | only load already-cached local models (no Hugging Face downloads) |
+| `--title TITLE` | title for the generated `minutes.md` |
+| `--diarize` | auto-detect and separate multiple other-party speakers (`transcribe` only) |
+| `--num-speakers N` | exact number of other-party speakers (`transcribe` only; `1` skips separation) |
 | `--device {auto,cpu,mps}` | where speaker separation runs; `auto` (default) uses the Apple GPU (MPS) when available, else CPU |
 | `--zh-variant none` | turn off the Simplified → Taiwan Traditional Chinese conversion |
 | `--no-vad` | keep everything, including noise from silent gaps |
+
+> Once models are cached locally, Hugging Face Hub lookups are skipped automatically. Pass
+> `--offline` to fail instead of downloading if a model isn't cached yet.
 
 ## Output
 
@@ -129,9 +155,31 @@ Recordings and downloaded models are kept out of version control.
 - **Separating speakers uses the Apple GPU (MPS) by default** and is much faster than CPU;
   pass `--device cpu` to force CPU. Long recordings on CPU can take a long time.
 
+## Responsible use
+
+This tool records on your own machine. It does **not** trigger the recording banner that
+Zoom, Teams, or Google Meet show when you use *their* built-in recording — so making sure
+everyone knows they're being recorded is on you, not the platform.
+
+- **Tell people first.** Before you start recording, say it out loud and get the other
+  participants' agreement. A clear verbal "I'm going to record this for notes — is that OK?"
+  is worth more than any automated chime.
+- **Know your jurisdiction.** Consent rules vary. Some places (e.g. California, and the EU
+  under GDPR) require *all* parties to agree before recording. Others only require one party.
+  In Taiwan, recording a conversation you are part of is generally permitted, but disclosure
+  is still good practice and personal-data rules may apply.
+- **Don't record covertly,** and stop if someone objects. The point of this tool is to save
+  you note-taking effort in meetings you're openly part of — not to capture people without
+  their knowledge.
+- **You're responsible for the recordings.** Transcripts can contain sensitive information;
+  store and share them accordingly.
+
+This is general guidance, not legal advice. If you're recording in a professional or
+regulated setting, check the rules that apply to you.
+
 ## Built with
 
-On-device speech recognition (MLX Whisper), voice-activity detection (Silero), speaker
+On-device speech recognition (mlx-audio), voice-activity detection (Silero), speaker
 separation (pyannote.audio), Chinese conversion (OpenCC), and system-audio capture
 (audiotee). Thanks to those projects.
 
