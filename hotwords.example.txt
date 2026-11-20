@@ -1,0 +1,12 @@
+# Copy this file to hotwords.txt (git-ignored) and customize for your team.
+# One term per line. Blank lines and lines starting with # are ignored.
+# Tip: Keep this list concise (around 10-30 frequently misheard acronyms or names);
+# too many similar-sounding acronyms can bias recognition toward the wrong term.
+
+PR
+API
+PM
+RD
+VPN
+Figma
+feedback

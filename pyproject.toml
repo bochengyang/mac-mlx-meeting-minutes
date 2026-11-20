@@ -1,7 +1,7 @@
 [project]
 name = "mac-mlx-meeting-minutes"
 version = "0.1.0"
-description = "Local macOS meeting minutes: record mic + system audio and transcribe on-device with MLX Whisper"
+description = "Local macOS meeting minutes: record mic + system audio and transcribe on-device with MLX Qwen3-ASR"
 requires-python = ">=3.10"
 license = "MIT"
 license-files = ["LICENSE"]
@@ -12,7 +12,7 @@ dependencies = [
 
 [project.optional-dependencies]
 transcribe = [
-    "mlx-whisper",
+    "mlx-audio",
     "opencc>=1.3.1",
     "silero-vad>=6.2.1",
 ]   # heavier; the model downloads on first transcribe
